@@ -1,100 +1,95 @@
 # Herdr Glow
 
-**An ambient edge glow for when your Herdr agents need you.**
+**Herdr 에이전트가 나를 기다릴 때 화면 가장자리가 은은하게 빛나는 앰비언트 라이트.**
 
-[한국어](README.ko.md)
+[English](README.en.md)
 
-![Orange glow pulsing around the screen edges while a Herdr agent is blocked](assets/herdr-glow-demo.gif)
+![Herdr 에이전트가 blocked일 때 화면 가장자리에서 주황색 글로우가 숨쉬듯 번지는 모습](assets/herdr-glow-demo.gif)
 
-When a coding agent in [Herdr](https://herdr.dev) becomes `blocked` (waiting on an
-approval or a question), Herdr Glow lights up the edges of your screen with a soft,
-breathing glow. It sits on top of every Space, monitor, and full-screen app, and it
-never takes clicks or keyboard focus.
+[Herdr](https://herdr.dev)의 코딩 에이전트가 `blocked`(승인이나 질문 대기) 상태가 되면,
+화면 가장자리가 부드럽게 숨쉬듯 빛납니다. 모든 Space, 모니터, 전체화면 앱 위에 표시되고
+클릭이나 키보드 포커스는 가로채지 않습니다.
 
-It is built so you don't miss a prompt when you step away, without nagging you when
-you are right there:
+자리를 비웠을 때 놓치지 않게 하면서, 자리에 있을 때는 방해하지 않도록 만들었어요.
 
-1. **Short pulse.** The moment an agent becomes blocked, the glow breathes twice
-   (about 5.6 s) and fades out.
-2. **Comes back when you're away.** If the agent is still blocked and you haven't
-   touched the keyboard or mouse for 30 s, the glow returns and keeps breathing.
-3. **Fades on input.** Touch the keyboard or mouse and it fades out. If you leave
-   again while the agent is still blocked, it returns after another 30 s.
-4. **Stops when unblocked.** It disappears once no agent is blocked, or when the
-   blocked pane closes.
+1. **짧은 알림.** 에이전트가 blocked가 되면 글로우가 두 번 숨쉬고(약 5.6초) 사라집니다.
+2. **자리를 비우면 다시 켜짐.** 여전히 blocked인 상태에서 키보드와 마우스를 30초 동안
+   건드리지 않으면 글로우가 다시 켜져서 계속 숨쉽니다.
+3. **입력하면 꺼짐.** 키보드나 마우스를 만지면 페이드 아웃합니다. 그 상태로 다시
+   자리를 비우면 30초 뒤에 또 켜집니다.
+4. **blocked가 풀리면 종료.** blocked인 에이전트가 없어지거나 해당 pane이 닫히면 사라집니다.
 
-If you're already away when an agent blocks, it skips the short pulse and glows
-straight away. With several blocked agents there is still just one glow, and it
-stays until the last one is unblocked.
+blocked가 되는 시점에 이미 자리를 비운 상태라면 짧은 알림 없이 바로 켜집니다.
+blocked인 에이전트가 여러 개여도 글로우는 하나만 뜨고, 마지막 하나가 풀릴 때 꺼집니다.
 
-## Quick start
+## 빠른 시작
 
-Requirements:
+요구 사항:
 
 - macOS
-- A running [Herdr](https://herdr.dev) 0.9.0 or later
-- Xcode Command Line Tools (`xcode-select --install`), used to compile the small Swift helper
+- 실행 중인 [Herdr](https://herdr.dev) 0.9.0 이상
+- Xcode Command Line Tools (`xcode-select --install`). 작은 Swift 헬퍼를 컴파일하는 데 필요합니다.
 
 ```sh
 herdr plugin install DevooKim/herdr-glow
 ```
 
-That's all. The plugin builds its helper on install and starts reacting to agent
-status changes right away. There are no actions or shortcuts to set up.
+이게 전부예요. 설치하면 헬퍼를 빌드하고 바로 에이전트 상태 변화에 반응합니다.
+따로 설정할 액션이나 단축키는 없습니다.
 
-To remove it:
+제거하려면:
 
 ```sh
 herdr plugin uninstall devookim.herdr-glow
 ```
 
-## How it works
+## 동작 방식
 
-The plugin subscribes to Herdr's `pane.agent_status_changed`, `pane.closed`, and
-`pane.exited` events. `bin/on-status-changed.sh` tracks which panes are blocked and
-starts or stops `bin/glow`, a single-file Swift/AppKit helper (`src/glow.swift`).
+플러그인이 Herdr의 `pane.agent_status_changed`, `pane.closed`, `pane.exited` 이벤트를
+구독합니다. `bin/on-status-changed.sh`가 blocked인 pane을 추적하면서 `bin/glow`를 띄우고
+종료합니다. `bin/glow`는 Swift/AppKit으로 작성한 단일 파일 헬퍼(`src/glow.swift`)입니다.
 
-`glow` only runs while an agent is blocked. It draws a transparent, click-through
-window with gradient edges, polls the system idle time once a second, and exits when
-the hook sends it a signal. It needs no extra permissions. While running it uses
-about 40 MB of memory and no measurable CPU.
+`glow`는 에이전트가 blocked인 동안에만 실행됩니다. 가장자리에 그라디언트를 그린 투명한
+클릭 통과 창을 띄우고, 1초마다 시스템 유휴 시간을 확인하며, 훅이 종료 신호를 보내면
+페이드 아웃하고 끝납니다. 별도 권한은 필요 없고, 실행 중 메모리는 약 40MB, CPU는
+측정되지 않을 만큼 적게 씁니다.
 
-## Customize
+## 설정 바꾸기
 
-Edit the `glow` line in `bin/on-status-changed.sh` inside the plugin directory
-(`herdr plugin list` shows where it lives).
+플러그인 디렉토리의 `bin/on-status-changed.sh`에서 `glow` 호출 줄을 수정하세요.
+위치는 `herdr plugin list`로 확인할 수 있습니다.
 
 ```sh
 "$DIR/glow" --color FF8A1F --width 60 --watch --idle 30 --intro 5.6
 ```
 
-| Option | Default | Meaning |
+| 옵션 | 기본값 | 설명 |
 | --- | --- | --- |
-| `--color RRGGBB` | `FF8A1F` | Glow color |
-| `--width PT` | `140` (hook uses `60`) | Glow thickness in points |
-| `--watch` | off | Short pulse, then glow again while you are idle |
-| `--idle SEC` | `30` | Idle time before the glow returns |
-| `--intro SEC` | `5.6` | Length of the short pulse |
-| `--duration SEC` | `3` | One-shot pulse without `--watch`; `0` glows until stopped |
+| `--color RRGGBB` | `FF8A1F` | 글로우 색 |
+| `--width PT` | `140` (훅에서는 `60`) | 글로우 두께(pt) |
+| `--watch` | 꺼짐 | 짧게 알린 뒤 자리를 비우면 다시 켬 |
+| `--idle SEC` | `30` | 다시 켜기까지의 유휴 시간 |
+| `--intro SEC` | `5.6` | 짧은 알림 길이 |
+| `--duration SEC` | `3` | `--watch` 없이 한 번만 보여 줄 시간. `0`이면 끌 때까지 유지 |
 
-You can also try it by hand. Stop it with `Ctrl+C` or `pkill glow`.
+직접 실행해 볼 수도 있어요. `Ctrl+C`나 `pkill glow`로 끕니다.
 
 ```sh
 bin/glow --duration 0 --width 60
 ```
 
-After editing `src/glow.swift`, rebuild with:
+`src/glow.swift`를 수정했다면 다음 명령으로 다시 빌드하세요.
 
 ```sh
 swiftc -O src/glow.swift -o bin/glow
 ```
 
-## Limitations
+## 제한 사항
 
-- macOS only. The overlay uses AppKit.
-- The glow shows on the displays connected when it starts.
-- Only the `blocked` state triggers it. `done` and `idle` do not.
+- macOS 전용입니다. 오버레이에 AppKit을 사용합니다.
+- 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다.
+- `blocked` 상태만 감지합니다. `done`이나 `idle`에는 반응하지 않습니다.
 
-## License
+## 라이선스
 
 MIT
