@@ -1,0 +1,21 @@
+id = "devookim.herdr-glow"
+name = "Herdr Glow"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Ambient edge glow while an agent is blocked"
+platforms = ["macos"]
+
+[[build]]
+command = ["swiftc", "-O", "src/glow.swift", "-o", "bin/glow"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["./bin/on-status-changed.sh"]
+
+[[events]]
+on = "pane.closed"
+command = ["./bin/on-status-changed.sh"]
+
+[[events]]
+on = "pane.exited"
+command = ["./bin/on-status-changed.sh"]
