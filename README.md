@@ -57,10 +57,10 @@ herdr plugin uninstall devookim.herdr-glow
 ## 설정 바꾸기
 
 플러그인 디렉토리의 `bin/on-status-changed.sh`에서 `glow` 호출 줄을 수정하세요.
-위치는 `herdr plugin list`로 확인할 수 있습니다.
+위치는 `herdr plugin list`로 확인할 수 있습니다. 색은 스크립트 상단의 `BLOCKED_COLOR`(기본 `FF8A1F`), `DONE_COLOR`(기본 `34C759`)로 바꿉니다.
 
 ```sh
-"$DIR/glow" --color FF8A1F --width 60 --watch --idle 30 --intro 5.6
+"$DIR/glow" --color "$WANT" --width 60 --watch --idle 30 --intro 5.6
 ```
 
 | 옵션 | 기본값 | 설명 |
@@ -88,7 +88,7 @@ swiftc -O src/glow.swift -o bin/glow
 
 - macOS 전용입니다. 오버레이에 AppKit을 사용합니다.
 - 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다.
-- `blocked` 상태만 감지합니다. `done`이나 `idle`에는 반응하지 않습니다.
+- `blocked`(주황)와 `done`(초록) 상태를 감지합니다. 둘이 동시에 있으면 blocked가 우선합니다. `idle`에는 반응하지 않습니다.
 
 ## 라이선스
 

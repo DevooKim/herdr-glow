@@ -62,10 +62,10 @@ about 40 MB of memory and no measurable CPU.
 ## Customize
 
 Edit the `glow` line in `bin/on-status-changed.sh` inside the plugin directory
-(`herdr plugin list` shows where it lives).
+(`herdr plugin list` shows where it lives). Colors are set by `BLOCKED_COLOR` (default `FF8A1F`) and `DONE_COLOR` (default `34C759`) at the top of the script.
 
 ```sh
-"$DIR/glow" --color FF8A1F --width 60 --watch --idle 30 --intro 5.6
+"$DIR/glow" --color "$WANT" --width 60 --watch --idle 30 --intro 5.6
 ```
 
 | Option | Default | Meaning |
@@ -93,7 +93,7 @@ swiftc -O src/glow.swift -o bin/glow
 
 - macOS only. The overlay uses AppKit.
 - The glow shows on the displays connected when it starts.
-- Only the `blocked` state triggers it. `done` and `idle` do not.
+- `blocked` (orange) and `done` (green) trigger it; blocked wins when both are present. `idle` does not.
 
 ## License
 
