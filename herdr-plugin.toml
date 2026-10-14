@@ -1,6 +1,6 @@
 id = "devookim.herdr-glow"
 name = "Herdr Glow"
-version = "0.3.0"
+version = "0.3.1"
 min_herdr_version = "0.9.0"
 description = "Ambient edge glow while an agent is blocked or done"
 platforms = ["macos"]

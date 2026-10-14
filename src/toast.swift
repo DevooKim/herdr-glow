@@ -67,11 +67,14 @@ app.setActivationPolicy(.accessory)
 
 let font = NSFont.systemFont(ofSize: 15, weight: .semibold)
 let subFont = NSFont.systemFont(ofSize: 15, weight: .regular)
-let text = NSMutableAttributedString(string: title, attributes: [.font: font, .foregroundColor: NSColor.white])
-text.append(NSAttributedString(string: "  \(subtitle)", attributes: [.font: subFont, .foregroundColor: NSColor.white.withAlphaComponent(0.7)]))
-
-let label = NSTextField(labelWithAttributedString: text)
+// Separate labels so a long title truncates in the middle while the status stays whole.
+let label = NSTextField(labelWithString: title)
+label.font = font
+label.textColor = .white
 label.lineBreakMode = .byTruncatingMiddle
+let statusLabel = NSTextField(labelWithString: subtitle)
+statusLabel.font = subFont
+statusLabel.textColor = NSColor.white.withAlphaComponent(0.7)
 let dotSize: CGFloat = 12
 let height: CGFloat = 52
 let padding: CGFloat = 22
@@ -79,8 +82,10 @@ let gap: CGFloat = 12
 let mouse = NSEvent.mouseLocation
 let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
 let maxLabel = screen.visibleFrame.width * 0.6
-let labelWidth = min(ceil(label.intrinsicContentSize.width), maxLabel)
-let width = padding + dotSize + gap + labelWidth + padding
+// intrinsicContentSize runs a few points short and clips the last word, so add slack.
+let statusWidth = ceil(statusLabel.intrinsicContentSize.width) + 4
+let labelWidth = min(ceil(label.intrinsicContentSize.width) + 4, maxLabel - statusWidth)
+let width = padding + dotSize + gap + labelWidth + gap / 2 + statusWidth + padding
 let vf = screen.visibleFrame
 let frame = NSRect(x: vf.midX - width / 2, y: vf.minY + 48, width: width, height: height)
 
@@ -118,6 +123,8 @@ blur.addSubview(dot)
 let labelHeight = ceil(label.intrinsicContentSize.height)
 label.frame = NSRect(x: padding + dotSize + gap, y: (height - labelHeight) / 2, width: labelWidth, height: labelHeight)
 blur.addSubview(label)
+statusLabel.frame = NSRect(x: label.frame.maxX + gap / 2, y: label.frame.minY, width: statusWidth, height: labelHeight)
+blur.addSubview(statusLabel)
 
 w.contentView = blur
 w.alphaValue = 0
