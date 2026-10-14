@@ -22,6 +22,9 @@
 blocked가 되는 시점에 이미 자리를 비운 상태라면 짧은 알림 없이 바로 켜집니다.
 blocked인 에이전트가 여러 개여도 글로우는 하나만 뜨고, 마지막 하나가 풀릴 때 꺼집니다.
 
+에이전트가 blocked나 done이 되면 화면 아래쪽 가운데에 알약 모양 토스트도 4초간 떠서
+어떤 에이전트인지 알려 줍니다(예: `herdr-glow · Claude  is done`).
+
 ## 빠른 시작
 
 요구 사항:
@@ -46,8 +49,9 @@ herdr plugin uninstall devookim.herdr-glow
 ## 동작 방식
 
 플러그인이 Herdr의 `pane.agent_status_changed`, `pane.closed`, `pane.exited` 이벤트를
-구독합니다. `bin/on-status-changed.sh`가 blocked인 pane을 추적하면서 `bin/glow`를 띄우고
-종료합니다. `bin/glow`는 Swift/AppKit으로 작성한 단일 파일 헬퍼(`src/glow.swift`)입니다.
+구독합니다. `bin/on-status-changed.sh`가 blocked/done인 pane을 추적하면서 `bin/glow`를 띄우고
+종료하고, 상태가 새로 바뀐 pane이 있으면 `bin/toast`(`src/toast.swift`)를 띄웁니다. 토스트는
+`herdr agent get`, `herdr workspace get`으로 에이전트와 워크스페이스 이름을 조회합니다. `bin/glow`는 Swift/AppKit으로 작성한 단일 파일 헬퍼(`src/glow.swift`)입니다.
 
 `glow`는 에이전트가 blocked인 동안에만 실행됩니다. 가장자리에 그라디언트를 그린 투명한
 클릭 통과 창을 띄우고, 1초마다 시스템 유휴 시간을 확인하며, 훅이 종료 신호를 보내면

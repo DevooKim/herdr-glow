@@ -27,6 +27,9 @@ If you're already away when an agent blocks, it skips the short pulse and glows
 straight away. With several blocked agents there is still just one glow, and it
 stays until the last one is unblocked.
 
+When an agent becomes blocked or done, a pill-shaped toast also appears at the
+bottom center of the screen for 4 s, naming the agent (e.g. `herdr-glow · Claude  is done`).
+
 ## Quick start
 
 Requirements:
@@ -52,7 +55,7 @@ herdr plugin uninstall devookim.herdr-glow
 
 The plugin subscribes to Herdr's `pane.agent_status_changed`, `pane.closed`, and
 `pane.exited` events. `bin/on-status-changed.sh` tracks which panes are blocked and
-starts or stops `bin/glow`, a single-file Swift/AppKit helper (`src/glow.swift`).
+starts or stops `bin/glow`, a single-file Swift/AppKit helper (`src/glow.swift`). When a pane newly turns blocked or done it also shows `bin/toast` (`src/toast.swift`), which looks up the agent and workspace names with `herdr agent get` and `herdr workspace get`.
 
 `glow` only runs while an agent is blocked. It draws a transparent, click-through
 window with gradient edges, polls the system idle time once a second, and exits when

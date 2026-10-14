@@ -18,11 +18,21 @@ glow_stop() {
   rm -f "$STATE/glow.pid" "$STATE/glow.color"
 }
 
-rm -f "$STATE/blocked.$KEY" "$STATE/done.$KEY"
+# Shows which agent changed, but only when a pane newly enters blocked/done.
+toast() {
+  [ -f "$STATE/$1.$KEY" ] && return
+  [ -f "$STATE/toast.pid" ] && kill "$(cat "$STATE/toast.pid")" 2>/dev/null
+  "$DIR/toast" --pane "$PANE" --status "$1" --color "$2" >/dev/null 2>&1 &
+  echo $! > "$STATE/toast.pid"
+}
+
 case "$HERDR_PLUGIN_EVENT_JSON" in
-  *'"agent_status":"blocked"'*) : > "$STATE/blocked.$KEY" ;;
-  *'"agent_status":"done"'*) : > "$STATE/done.$KEY" ;;
+  *'"agent_status":"blocked"'*) toast blocked "$BLOCKED_COLOR"; NEW=blocked ;;
+  *'"agent_status":"done"'*) toast done "$DONE_COLOR"; NEW=done ;;
+  *) NEW="" ;;
 esac
+rm -f "$STATE/blocked.$KEY" "$STATE/done.$KEY"
+[ -n "$NEW" ] && : > "$STATE/$NEW.$KEY"
 
 if ls "$STATE"/blocked.* >/dev/null 2>&1; then
   WANT="$BLOCKED_COLOR"
