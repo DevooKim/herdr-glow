@@ -83,39 +83,63 @@ about 40 MB of memory and no measurable CPU.
 
 ## Customize
 
-Edit the `glow` line in `bin/on-status-changed.sh` inside the plugin directory
-(`herdr plugin list` shows where it lives). Colors are set by `BLOCKED_COLOR` (default `FF8A1F`) and `DONE_COLOR` (default `34C759`) at the top of the script.
+Put a `config.toml` in the plugin's config directory (`herdr plugin config-dir devookim.herdr-glow`,
+usually `~/.config/herdr/plugins/config/devookim.herdr-glow/`). Write one section per status
+(`blocked`, `done`, `working`, `idle`); anything you leave out uses the default.
+Changes apply from the next event.
 
-```sh
-"$DIR/glow" --color "$WANT" --width 60 --watch --idle 30 --intro 5.6
+```toml
+[done]
+pulse = 3      # pulse for 3 s
+idle = 0       # never come back on idle
+
+[blocked]
+pulse = 5      # pulse for 5 s
+idle = 15      # come back after 15 s without input
+
+[idle]
+pulse = 2
+toast = true
+color = "8E8E93"
+
+[glow]
+width = 60
 ```
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `--color RRGGBB` | `FF8A1F` | Glow color |
-| `--width PT` | `140` (hook uses `60`) | Glow thickness in points |
-| `--watch` | off | Short pulse, then glow again while you are idle |
-| `--idle SEC` | `30` | Idle time before the glow returns |
-| `--intro SEC` | `5.6` | Length of the short pulse |
-| `--duration SEC` | `3` | One-shot pulse without `--watch`; `0` glows until stopped |
+| Key | Meaning |
+| --- | --- |
+| `pulse` | Pulse length in seconds when a pane enters the status. `0` = no glow |
+| `idle` | While the status lasts, glow again after this many seconds without input. `0` = never |
+| `toast` | Show the toast (`true` / `false`) |
+| `color` | Glow and toast dot color (`RRGGBB`) |
+| `[glow] width` | Glow thickness in points |
 
-You can also try it by hand. Stop it with `Ctrl+C` or `pkill glow`.
+| Status | `pulse` | `idle` | `toast` | `color` |
+| --- | --- | --- | --- | --- |
+| `blocked` | `5.6` | `30` | `true` | `FF8A1F` |
+| `done` | `5.6` | `0` | `true` | `34C759` |
+| `working` | `0` | `0` | `false` | `0A84FF` |
+| `idle` | `0` | `0` | `false` | `8E8E93` |
+
+When several statuses have `idle` above 0, priority is `blocked` → `done` → `working` → `idle`.
+
+You can also run `glow` by hand. Stop it with `Ctrl+C` or `pkill glow`.
 
 ```sh
 bin/glow --duration 0 --width 60
 ```
 
-After editing `src/glow.swift`, rebuild with:
+After editing `src/*.swift`, rebuild with:
 
 ```sh
-swiftc -O src/glow.swift -o bin/glow
+swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
 ```
 
 ## Limitations
 
 - macOS only. The overlay uses AppKit.
 - The glow shows on the displays connected when it starts.
-- `blocked` (orange) is tracked until it clears; `done` (green) pulses once and never returns on idle. If the blocked glow is already on, done shows only the toast. `idle` does not trigger anything.
+- By default only `blocked` (orange) and `done` (green) react; see [Customize](#customize) to change any status. If another glow is already on, a new pulse is skipped and only the toast shows.
 
 ## License
 

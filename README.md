@@ -79,39 +79,63 @@ description = "dismiss glow"
 
 ## 설정 바꾸기
 
-플러그인 디렉토리의 `bin/on-status-changed.sh`에서 `glow` 호출 줄을 수정하세요.
-위치는 `herdr plugin list`로 확인할 수 있습니다. 색은 스크립트 상단의 `BLOCKED_COLOR`(기본 `FF8A1F`), `DONE_COLOR`(기본 `34C759`)로 바꿉니다.
+플러그인 설정 폴더(`herdr plugin config-dir devookim.herdr-glow`, 보통
+`~/.config/herdr/plugins/config/devookim.herdr-glow/`)에 `config.toml`을 두면 됩니다.
+상태(`blocked`, `done`, `working`, `idle`)마다 섹션을 하나씩 쓰고, 적지 않은 값은 기본값을 씁니다.
+변경 내용은 다음 이벤트부터 반영됩니다.
 
-```sh
-"$DIR/glow" --color "$WANT" --width 60 --watch --idle 30 --intro 5.6
+```toml
+[done]
+pulse = 3      # 3초 깜박이고
+idle = 0       # 자리를 비워도 다시 켜지지 않음
+
+[blocked]
+pulse = 5      # 5초 깜박이고
+idle = 15      # 15초 동안 입력이 없으면 다시 켜짐
+
+[idle]
+pulse = 2
+toast = true
+color = "8E8E93"
+
+[glow]
+width = 60
 ```
 
-| 옵션 | 기본값 | 설명 |
-| --- | --- | --- |
-| `--color RRGGBB` | `FF8A1F` | 글로우 색 |
-| `--width PT` | `140` (훅에서는 `60`) | 글로우 두께(pt) |
-| `--watch` | 꺼짐 | 짧게 알린 뒤 자리를 비우면 다시 켬 |
-| `--idle SEC` | `30` | 다시 켜기까지의 유휴 시간 |
-| `--intro SEC` | `5.6` | 짧은 알림 길이 |
-| `--duration SEC` | `3` | `--watch` 없이 한 번만 보여 줄 시간. `0`이면 끌 때까지 유지 |
+| 키 | 설명 |
+| --- | --- |
+| `pulse` | 상태가 바뀔 때 깜박이는 시간(초). `0`이면 글로우 없음 |
+| `idle` | 그 상태가 이어지는 동안, 이 시간만큼 입력이 없으면 다시 켬(초). `0`이면 다시 켜지 않음 |
+| `toast` | 토스트 표시 여부 (`true` / `false`) |
+| `color` | 글로우와 토스트 점 색 (`RRGGBB`) |
+| `[glow] width` | 글로우 두께(pt) |
 
-직접 실행해 볼 수도 있어요. `Ctrl+C`나 `pkill glow`로 끕니다.
+| 상태 | `pulse` | `idle` | `toast` | `color` |
+| --- | --- | --- | --- | --- |
+| `blocked` | `5.6` | `30` | `true` | `FF8A1F` |
+| `done` | `5.6` | `0` | `true` | `34C759` |
+| `working` | `0` | `0` | `false` | `0A84FF` |
+| `idle` | `0` | `0` | `false` | `8E8E93` |
+
+`idle`이 0보다 큰 상태가 여러 개면 `blocked` → `done` → `working` → `idle` 순으로 우선합니다.
+
+`glow`를 직접 실행해 볼 수도 있어요. `Ctrl+C`나 `pkill glow`로 끕니다.
 
 ```sh
 bin/glow --duration 0 --width 60
 ```
 
-`src/glow.swift`를 수정했다면 다음 명령으로 다시 빌드하세요.
+`src/*.swift`를 수정했다면 다음 명령으로 다시 빌드하세요.
 
 ```sh
-swiftc -O src/glow.swift -o bin/glow
+swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
 ```
 
 ## 제한 사항
 
 - macOS 전용입니다. 오버레이에 AppKit을 사용합니다.
 - 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다.
-- `blocked`(주황)는 계속 추적하고, `done`(초록)은 한 번만 숨쉬고 끝납니다. done은 자리를 비워도 다시 켜지지 않고, blocked 글로우가 켜져 있으면 토스트만 뜹니다. `idle`에는 반응하지 않습니다.
+- 기본값으로는 `blocked`(주황)와 `done`(초록)에만 반응합니다. 상태별 동작은 [설정 바꾸기](#설정-바꾸기)에서 바꿀 수 있어요. 다른 글로우가 켜져 있으면 새 깜박임은 생략하고 토스트만 띄웁니다.
 
 ## 라이선스
 

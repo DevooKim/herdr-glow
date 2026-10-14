@@ -159,7 +159,7 @@ if watch {
     if idleSeconds() >= idleThreshold {
         showPersistent()
         state = .glowing
-    } else {
+    } else if intro > 0 {
         state = .intro
         playOneShot(intro)
         DispatchQueue.main.asyncAfter(deadline: .now() + intro) { state = .waiting }

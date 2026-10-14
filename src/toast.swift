@@ -63,7 +63,14 @@ let workspace = workspaceID.flatMap { herdr(["workspace", "get", $0])?["workspac
 
 let agentName = (agent?["agent"] as? String).map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Agent"
 let workspaceName = workspace?["label"] as? String
-let verb = status == "blocked" ? "needs your input" : "is done"
+let verb: String
+switch status {
+case "blocked": verb = "needs your input"
+case "done": verb = "is done"
+case "working": verb = "is working"
+case "idle": verb = "is idle"
+default: verb = status
+}
 let title = fixedTitle ?? workspaceName.map { "\($0) · \(agentName)" } ?? agentName
 let subtitle = fixedTitle == nil ? verb : fixedSubtitle
 
