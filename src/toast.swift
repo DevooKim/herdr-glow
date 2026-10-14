@@ -2,12 +2,15 @@ import AppKit
 
 // Pill-shaped HUD toast at the bottom center of the screen under the mouse.
 //   toast --pane ID --status blocked|done [--color RRGGBB] [--duration SEC]
-// Looks up the agent and workspace names through the herdr CLI.
+//   toast --title TEXT [--subtitle TEXT] [--color RRGGBB] [--duration SEC]
+// With --pane, looks up the agent and workspace names through the herdr CLI.
 
 var paneID = ""
 var status = ""
 var colorHex = "FF8A1F"
 var duration = 4.0
+var fixedTitle: String?
+var fixedSubtitle = ""
 
 var args = Array(CommandLine.arguments.dropFirst())
 while args.count >= 2 {
@@ -18,6 +21,8 @@ while args.count >= 2 {
     case "--status": status = value
     case "--color": colorHex = value
     case "--duration": duration = Double(value) ?? duration
+    case "--title": fixedTitle = value
+    case "--subtitle": fixedSubtitle = value
     default: break
     }
 }
@@ -52,15 +57,15 @@ func herdr(_ args: [String]) -> [String: Any]? {
     return json?["result"] as? [String: Any]
 }
 
-let agent = herdr(["agent", "get", paneID])?["agent"] as? [String: Any]
+let agent = fixedTitle == nil ? herdr(["agent", "get", paneID])?["agent"] as? [String: Any] : nil
 let workspaceID = agent?["workspace_id"] as? String
 let workspace = workspaceID.flatMap { herdr(["workspace", "get", $0])?["workspace"] as? [String: Any] }
 
 let agentName = (agent?["agent"] as? String).map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Agent"
 let workspaceName = workspace?["label"] as? String
 let verb = status == "blocked" ? "needs your input" : "is done"
-let title = workspaceName.map { "\($0) · \(agentName)" } ?? agentName
-let subtitle = verb
+let title = fixedTitle ?? workspaceName.map { "\($0) · \(agentName)" } ?? agentName
+let subtitle = fixedTitle == nil ? verb : fixedSubtitle
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)

@@ -22,6 +22,8 @@ if [ "$1" = dismiss ]; then
   rm -f "$STATE"/blocked.* "$STATE"/done.*
   glow_stop
   [ -f "$STATE/toast.pid" ] && kill "$(cat "$STATE/toast.pid")" 2>/dev/null
+  "$DIR/toast" --title "Herdr Glow" --subtitle "dismissed" --color 8E8E93 --duration 2 >/dev/null 2>&1 &
+  echo $! > "$STATE/toast.pid"
   exit 0
 fi
 
