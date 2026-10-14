@@ -1,6 +1,6 @@
 id = "devookim.herdr-glow"
 name = "Herdr Glow"
-version = "0.3.1"
+version = "0.4.0"
 min_herdr_version = "0.9.0"
 description = "Ambient edge glow while an agent is blocked or done"
 platforms = ["macos"]
@@ -19,3 +19,23 @@ command = ["./bin/on-status-changed.sh"]
 [[events]]
 on = "pane.exited"
 command = ["./bin/on-status-changed.sh"]
+
+[[events]]
+on = "pane.focused"
+command = ["./bin/on-status-changed.sh"]
+
+[[events]]
+on = "tab.focused"
+command = ["./bin/on-status-changed.sh"]
+
+[[events]]
+on = "workspace.focused"
+command = ["./bin/on-status-changed.sh"]
+
+# Bind this action to a key with a [[keys.command]] entry of type "plugin_action".
+[[actions]]
+id = "dismiss"
+title = "Herdr Glow: dismiss"
+description = "Turn the glow off and forget blocked/done agents until their status changes again"
+contexts = ["global"]
+command = ["./bin/on-status-changed.sh", "dismiss"]

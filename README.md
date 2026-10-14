@@ -46,6 +46,25 @@ herdr plugin install DevooKim/herdr-glow
 herdr plugin uninstall devookim.herdr-glow
 ```
 
+## 글로우 끄기
+
+done인 pane에 포커스하면 확인한 것으로 보고 글로우를 끕니다. 그래도 남아 있으면
+`dismiss` 액션으로 강제로 끌 수 있어요. 상태가 다시 바뀌기 전까지는 켜지지 않습니다.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.dismiss
+```
+
+단축키로 쓰려면 Herdr `config.toml`에 추가하세요.
+
+```toml
+[[keys.command]]
+key = "prefix+g"
+type = "plugin_action"
+command = "devookim.herdr-glow.dismiss"
+description = "dismiss glow"
+```
+
 ## 동작 방식
 
 플러그인이 Herdr의 `pane.agent_status_changed`, `pane.closed`, `pane.exited` 이벤트를

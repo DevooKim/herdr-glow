@@ -51,6 +51,25 @@ To remove it:
 herdr plugin uninstall devookim.herdr-glow
 ```
 
+## Turning it off
+
+Focusing a done pane counts as seeing it and clears its glow. If the glow sticks
+around anyway, the `dismiss` action forces it off until an agent's status changes again.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.dismiss
+```
+
+To bind it to a key, add this to Herdr's `config.toml`:
+
+```toml
+[[keys.command]]
+key = "prefix+g"
+type = "plugin_action"
+command = "devookim.herdr-glow.dismiss"
+description = "dismiss glow"
+```
+
 ## How it works
 
 The plugin subscribes to Herdr's `pane.agent_status_changed`, `pane.closed`, and
