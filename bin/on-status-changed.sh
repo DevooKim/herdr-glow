@@ -78,7 +78,9 @@ if [ "$1" = demo ]; then
   if [ "$(toast_of "$S")" = true ]; then
     toast_stop
     case "$S" in blocked) VERB="needs your input" ;; done) VERB="is done" ;; *) VERB="is $S" ;; esac
-    "$DIR/toast" --title "Demo · Agent" --subtitle "$VERB" --color "$COLOR" --duration "$TOAST_DURATION" >/dev/null 2>&1 &
+    # Clicking the demo toast focuses the agent pane you're on, so click and hover can be tried too.
+    DEMO_PANE="$(herdr agent list 2>/dev/null | sed -n 's/.*"focused":true[^{}]*"pane_id":"\([^"]*\)".*/\1/p' | head -1)"
+    "$DIR/toast" --title "Demo · Agent" --subtitle "$VERB" --color "$COLOR" --duration "$TOAST_DURATION" --pane "$DEMO_PANE" --click "$TOAST_CLICK" >/dev/null 2>&1 &
     echo $! > "$STATE/toast.pid"
   fi
   exit 0

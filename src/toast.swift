@@ -3,7 +3,7 @@ import QuartzCore
 
 // Pill-shaped HUD toast at the bottom center of the screen under the mouse.
 //   toast --pane ID --status blocked|done [--color RRGGBB] [--duration SEC] [--click true|false]
-//   toast --title TEXT [--subtitle TEXT] [--color RRGGBB] [--duration SEC]
+//   toast --title TEXT [--subtitle TEXT] [--color RRGGBB] [--duration SEC] [--pane ID]
 // With --pane, looks up the agent and workspace names through the herdr CLI,
 // and clicking the toast focuses that pane.
 
@@ -127,8 +127,8 @@ w.level = .statusBar
 w.isOpaque = false
 w.backgroundColor = .clear
 w.hasShadow = true
-// Only toasts for a real pane are clickable; the rest stay click-through.
-w.ignoresMouseEvents = fixedTitle != nil || !clickable
+// Only toasts that name a pane are clickable; the rest stay click-through.
+w.ignoresMouseEvents = paneID.isEmpty || !clickable
 w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
 let blur = ClickableBlur(frame: NSRect(origin: .zero, size: frame.size))
@@ -200,7 +200,7 @@ statusLabel.frame = NSRect(x: label.frame.maxX + gap / 2, y: label.frame.minY, w
 blur.addSubview(statusLabel)
 
 w.contentView = blur
-if fixedTitle == nil && clickable {
+if !paneID.isEmpty && clickable {
     blur.onClick = {
         _ = herdr(["agent", "focus", paneID])
         dismiss()

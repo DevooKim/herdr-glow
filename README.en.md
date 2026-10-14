@@ -86,7 +86,7 @@ herdr plugin action invoke devookim.herdr-glow.demo-idle
 
 The toast stays for 4 seconds by default (`[toast] duration`). Click it to jump to that agent's pane (`herdr agent focus`; turn off with `[toast] click = false`).
 The toast's rim has a comet of the status color circling it. Hovering brightens it and the rim, switches the pointer to a hand, and keeps the toast up until the pointer leaves (then it closes within 1.5 seconds).
-Demo toasts have no real pane, so clicking them does nothing.
+Demo toasts are clickable too and jump to the agent pane you're on, so you can try the click and hover effects.
 
 ## How it works
 
