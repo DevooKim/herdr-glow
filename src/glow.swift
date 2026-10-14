@@ -2,8 +2,9 @@ import AppKit
 import QuartzCore
 
 // Ambient edge glow overlay.
-//   glow [--color RRGGBB] [--width PT] [--duration SEC]
+//   glow [--color RRGGBB] [--width PT] [--duration SEC] [--screen active|all]
 //   glow --watch [--idle SEC] [--intro SEC]
+// --screen active  glow only on the display under the mouse when it lights up (default); all = every display.
 // --duration SEC  one-shot pulse, then exit (0 = glow until SIGTERM).
 // --watch         short intro pulse, then glow again whenever the user has been idle
 //                 for --idle seconds; any input fades it out. Runs until SIGTERM/SIGINT.
@@ -14,6 +15,7 @@ var width: CGFloat = 140
 var watch = false
 var idleThreshold = 30.0
 var intro = 5.6
+var activeScreenOnly = true
 
 var args = Array(CommandLine.arguments.dropFirst())
 while let flag = args.first {
@@ -27,6 +29,7 @@ while let flag = args.first {
     case "--width": width = CGFloat(Double(value) ?? Double(width))
     case "--idle": idleThreshold = Double(value) ?? idleThreshold
     case "--intro": intro = Double(value) ?? intro
+    case "--screen": activeScreenOnly = value != "all"
     default: break
     }
 }
@@ -57,6 +60,7 @@ app.setActivationPolicy(.accessory)
 let color = parseColor(colorHex)
 var windows: [NSWindow] = []
 var rootLayers: [CALayer] = []
+var rootScreens: [NSScreen] = []
 var sources: [DispatchSourceSignal] = []
 
 for screen in NSScreen.screens {
@@ -85,13 +89,22 @@ for screen in NSScreen.screens {
     w.orderFrontRegardless()
     windows.append(w)
     rootLayers.append(root)
+    rootScreens.append(screen)
+}
+
+/// The layers to light now: the display under the mouse, or all of them.
+func targetLayers() -> [CALayer] {
+    guard activeScreenOnly else { return rootLayers }
+    let mouse = NSEvent.mouseLocation
+    let active = rootLayers.indices.filter { NSMouseInRect(mouse, rootScreens[$0].frame, false) }
+    return (active.isEmpty ? Array(rootLayers.indices) : active).map { rootLayers[$0] }
 }
 
 /// One-shot with the same pacing as showPersistent(): 0.4s fade in, two 2.4s breaths, 0.4s fade out.
 let oneShotSeconds = 5.6
 func playOneShot(_ seconds: Double = oneShotSeconds) {
     let stops: [(t: Double, v: Float)] = [(0, 0), (0.4, 1), (1.6, 0.45), (2.8, 1), (4.0, 0.45), (5.2, 1), (5.6, 0)]
-    for layer in rootLayers {
+    for layer in targetLayers() {
         let anim = CAKeyframeAnimation(keyPath: "opacity")
         anim.values = stops.map { $0.v }
         anim.keyTimes = stops.map { NSNumber(value: $0.t / oneShotSeconds) }
@@ -104,7 +117,7 @@ func playOneShot(_ seconds: Double = oneShotSeconds) {
 
 /// Fade in once, then breathe until hide().
 func showPersistent() {
-    for layer in rootLayers {
+    for layer in targetLayers() {
         layer.removeAllAnimations()
         layer.opacity = 1
         let fade = CABasicAnimation(keyPath: "opacity")

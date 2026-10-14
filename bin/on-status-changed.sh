@@ -6,9 +6,11 @@
 #   idle = SEC     while the status lasts, glow again after this much user idle time (0 = never)
 #   toast = true | false
 #   color = RRGGBB
-#   [glow] width = PT
+#   [glow] width = PT, screen = active | all   which displays glow (active = the one under the mouse)
+#   [toast] duration = SEC, click = true | false   how long the toast stays; click it to focus the pane
 # When several statuses want to come back on idle, the first in $PRIORITY wins.
 #   on-status-changed.sh dismiss   clear everything and turn the glow off
+#   on-status-changed.sh demo STATUS   preview STATUS's pulse and toast with the current config
 # On pane/tab/workspace focus, done panes you're now looking at count as seen.
 DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE="${TMPDIR:-/tmp}/herdr-glow"
@@ -40,6 +42,9 @@ toast_of() { case "$1" in blocked|done) d=true ;; *) d=false ;; esac; cfg "$1" t
 color_of() { case "$1" in blocked) d=FF8A1F ;; done) d=34C759 ;; working) d=0A84FF ;; *) d=8E8E93 ;; esac; cfg "$1" color "$d"; }
 is_zero() { awk -v n="$1" 'BEGIN { exit !(n + 0 <= 0) }'; }
 WIDTH="$(cfg glow width 60)"
+SCREEN="$(cfg glow screen active)"
+TOAST_DURATION="$(cfg toast duration 4)"
+TOAST_CLICK="$(cfg toast click true)"
 
 glow_alive() { [ -f "$STATE/glow.pid" ] && kill -0 "$(cat "$STATE/glow.pid")" 2>/dev/null; }
 glow_stop() {
@@ -54,6 +59,28 @@ if [ "$1" = dismiss ]; then
   toast_stop
   "$DIR/toast" --title "Herdr Glow" --subtitle "dismissed" --color 8E8E93 --duration 2 >/dev/null 2>&1 &
   echo $! > "$STATE/toast.pid"
+  exit 0
+fi
+
+if [ "$1" = demo ]; then
+  S="$2"
+  case " $PRIORITY " in *" $S "*) ;; *) echo "usage: $0 demo blocked|done|working|idle" >&2; exit 1 ;; esac
+  COLOR="$(color_of "$S")"
+  PULSE="$(pulse_of "$S")"
+  if is_zero "$PULSE" && [ "$(toast_of "$S")" != true ]; then
+    # Nothing configured for this status; say so instead of silently doing nothing.
+    toast_stop
+    "$DIR/toast" --title "Herdr Glow · $S" --subtitle "no glow, no toast" --color "$COLOR" --duration 2 >/dev/null 2>&1 &
+    echo $! > "$STATE/toast.pid"
+    exit 0
+  fi
+  is_zero "$PULSE" || "$DIR/glow" --color "$COLOR" --width "$WIDTH" --screen "$SCREEN" --duration "$PULSE" >/dev/null 2>&1 &
+  if [ "$(toast_of "$S")" = true ]; then
+    toast_stop
+    case "$S" in blocked) VERB="needs your input" ;; done) VERB="is done" ;; *) VERB="is $S" ;; esac
+    "$DIR/toast" --title "Demo · Agent" --subtitle "$VERB" --color "$COLOR" --duration "$TOAST_DURATION" >/dev/null 2>&1 &
+    echo $! > "$STATE/toast.pid"
+  fi
   exit 0
 fi
 
@@ -86,11 +113,11 @@ case "$HERDR_PLUGIN_EVENT_JSON" in
       COLOR="$(color_of "$NEW")"
       # Statuses with idle > 0 get their pulse from the idle glow's intro below.
       if ! is_zero "$(pulse_of "$NEW")" && is_zero "$(idle_of "$NEW")" && ! glow_alive; then
-        "$DIR/glow" --color "$COLOR" --width "$WIDTH" --duration "$(pulse_of "$NEW")" >/dev/null 2>&1 &
+        "$DIR/glow" --color "$COLOR" --width "$WIDTH" --screen "$SCREEN" --duration "$(pulse_of "$NEW")" >/dev/null 2>&1 &
       fi
       if [ "$(toast_of "$NEW")" = true ]; then
         toast_stop
-        "$DIR/toast" --pane "$PANE" --status "$NEW" --color "$COLOR" >/dev/null 2>&1 &
+        "$DIR/toast" --pane "$PANE" --status "$NEW" --color "$COLOR" --duration "$TOAST_DURATION" --click "$TOAST_CLICK" >/dev/null 2>&1 &
         echo $! > "$STATE/toast.pid"
       fi
     fi ;;
@@ -109,7 +136,7 @@ elif ! glow_alive || [ "$(cat "$STATE/glow.status" 2>/dev/null)" != "$WANT" ]; t
   glow_stop
   PULSE="$(pulse_of "$WANT")"
   is_zero "$PULSE" && PULSE=0
-  "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --watch --idle "$(idle_of "$WANT")" --intro "$PULSE" >/dev/null 2>&1 &
+  "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --screen "$SCREEN" --watch --idle "$(idle_of "$WANT")" --intro "$PULSE" >/dev/null 2>&1 &
   echo $! > "$STATE/glow.pid"
   echo "$WANT" > "$STATE/glow.status"
 fi

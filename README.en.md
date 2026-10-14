@@ -8,7 +8,7 @@
 
 When a coding agent in [Herdr](https://herdr.dev) becomes `blocked` (waiting on an
 approval or a question), Herdr Glow lights up the edges of your screen with a soft,
-breathing glow. It sits on top of every Space, monitor, and full-screen app, and it
+breathing glow. It sits on top of every Space and full-screen app (on the display you're using by default), and it
 never takes clicks or keyboard focus.
 
 It is built so you don't miss a prompt when you step away, without nagging you when
@@ -70,6 +70,24 @@ command = "devookim.herdr-glow.dismiss"
 description = "dismiss glow"
 ```
 
+## Try it out
+
+Preview each status's glow and toast with your current `config.toml`. This doesn't touch real pane
+state. A status with `pulse = 0` and `toast = false` only shows a "no glow, no toast" toast.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.demo-blocked
+herdr plugin action invoke devookim.herdr-glow.demo-done
+herdr plugin action invoke devookim.herdr-glow.demo-working
+herdr plugin action invoke devookim.herdr-glow.demo-idle
+```
+
+## Click the toast
+
+The toast stays for 4 seconds by default (`[toast] duration`). Click it to jump to that agent's pane (`herdr agent focus`; turn off with `[toast] click = false`).
+The toast's rim has a comet of the status color circling it. Hovering brightens it and the rim, switches the pointer to a hand, and keeps the toast up until the pointer leaves (then it closes within 1.5 seconds).
+Demo toasts have no real pane, so clicking them does nothing.
+
 ## How it works
 
 The plugin subscribes to Herdr's `pane.agent_status_changed`, `pane.closed`, and
@@ -104,6 +122,11 @@ color = "8E8E93"
 
 [glow]
 width = 60
+screen = "active"   # "active" = only the display under the mouse, "all" = every display
+
+[toast]
+duration = 4   # seconds the toast stays
+click = true   # clicking it jumps to the pane
 ```
 
 | Key | Meaning |
@@ -113,6 +136,9 @@ width = 60
 | `toast` | Show the toast (`true` / `false`) |
 | `color` | Glow and toast dot color (`RRGGBB`) |
 | `[glow] width` | Glow thickness in points |
+| `[glow] screen` | Which displays glow. `active` lights only the display under the mouse when the glow starts, `all` lights every display. Default `active` |
+| `[toast] duration` | Seconds the toast stays. Default `4` |
+| `[toast] click` | Click the toast to jump to its pane (`true` / `false`). Default `true` |
 
 | Status | `pulse` | `idle` | `toast` | `color` |
 | --- | --- | --- | --- | --- |
@@ -138,7 +164,7 @@ swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
 ## Limitations
 
 - macOS only. The overlay uses AppKit.
-- The glow shows on the displays connected when it starts.
+- The glow shows on the displays connected when it starts. With the default `screen = "active"` only the display under the mouse lights up.
 - By default only `blocked` (orange) and `done` (green) react; see [Customize](#customize) to change any status. If another glow is already on, a new pulse is skipped and only the toast shows.
 
 ## License

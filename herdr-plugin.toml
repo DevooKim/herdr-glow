@@ -1,6 +1,6 @@
 id = "devookim.herdr-glow"
 name = "Herdr Glow"
-version = "0.6.0"
+version = "0.7.0"
 min_herdr_version = "0.9.0"
 description = "Ambient edge glow while an agent is blocked or done"
 platforms = ["macos"]
@@ -39,3 +39,31 @@ title = "Herdr Glow: dismiss"
 description = "Turn the glow off and forget blocked/done agents until their status changes again"
 contexts = ["global"]
 command = ["./bin/on-status-changed.sh", "dismiss"]
+
+[[actions]]
+id = "demo-blocked"
+title = "Herdr Glow: demo blocked"
+description = "Preview the blocked glow and toast with the current config"
+contexts = ["global"]
+command = ["./bin/on-status-changed.sh", "demo", "blocked"]
+
+[[actions]]
+id = "demo-done"
+title = "Herdr Glow: demo done"
+description = "Preview the done glow and toast with the current config"
+contexts = ["global"]
+command = ["./bin/on-status-changed.sh", "demo", "done"]
+
+[[actions]]
+id = "demo-working"
+title = "Herdr Glow: demo working"
+description = "Preview the working glow and toast with the current config"
+contexts = ["global"]
+command = ["./bin/on-status-changed.sh", "demo", "working"]
+
+[[actions]]
+id = "demo-idle"
+title = "Herdr Glow: demo idle"
+description = "Preview the idle glow and toast with the current config"
+contexts = ["global"]
+command = ["./bin/on-status-changed.sh", "demo", "idle"]

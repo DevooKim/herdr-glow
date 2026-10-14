@@ -65,6 +65,24 @@ command = "devookim.herdr-glow.dismiss"
 description = "dismiss glow"
 ```
 
+## 데모 실행
+
+현재 `config.toml` 설정 그대로 상태별 글로우와 토스트를 미리 볼 수 있어요.
+실제 pane 상태는 건드리지 않습니다. `pulse`가 0이고 `toast`도 꺼진 상태는 "no glow, no toast" 토스트만 뜹니다.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.demo-blocked
+herdr plugin action invoke devookim.herdr-glow.demo-done
+herdr plugin action invoke devookim.herdr-glow.demo-working
+herdr plugin action invoke devookim.herdr-glow.demo-idle
+```
+
+## 토스트 클릭
+
+토스트는 기본 4초 동안 떠 있고(`[toast] duration`), 클릭하면 해당 에이전트의 pane으로 이동합니다(`herdr agent focus`, `[toast] click = false`로 끌 수 있어요).
+토스트 테두리에는 상태 색이 꼬리를 끌며 테두리를 따라 도는 효과가 있습니다. 마우스를 올리면 이 효과와 테두리가 밝아지고 포인터가 손가락 모양으로 바뀌며, 올려 둔 동안은 사라지지 않습니다(벗어나면 최대 1.5초 뒤 닫힘).
+데모 토스트는 실제 pane이 없어서 클릭해도 아무 일도 일어나지 않습니다.
+
 ## 동작 방식
 
 플러그인이 Herdr의 `pane.agent_status_changed`, `pane.closed`, `pane.exited` 이벤트를
@@ -100,6 +118,11 @@ color = "8E8E93"
 
 [glow]
 width = 60
+screen = "active"   # "active" = 마우스가 있는 디스플레이만, "all" = 모든 디스플레이
+
+[toast]
+duration = 4   # 토스트가 떠 있는 시간(초)
+click = true   # 클릭하면 해당 pane으로 이동
 ```
 
 | 키 | 설명 |
@@ -109,6 +132,9 @@ width = 60
 | `toast` | 토스트 표시 여부 (`true` / `false`) |
 | `color` | 글로우와 토스트 점 색 (`RRGGBB`) |
 | `[glow] width` | 글로우 두께(pt) |
+| `[glow] screen` | 글로우를 띄울 디스플레이. `active`는 켜지는 순간 마우스가 있는 디스플레이만, `all`은 모든 디스플레이. 기본 `active` |
+| `[toast] duration` | 토스트가 떠 있는 시간(초). 기본 `4` |
+| `[toast] click` | 토스트를 클릭하면 해당 pane으로 이동 (`true` / `false`). 기본 `true` |
 
 | 상태 | `pulse` | `idle` | `toast` | `color` |
 | --- | --- | --- | --- | --- |
@@ -134,7 +160,7 @@ swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
 ## 제한 사항
 
 - macOS 전용입니다. 오버레이에 AppKit을 사용합니다.
-- 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다.
+- 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다. 기본값(`screen = "active"`)에서는 켜지는 순간 마우스가 있는 디스플레이에만 나옵니다.
 - 기본값으로는 `blocked`(주황)와 `done`(초록)에만 반응합니다. 상태별 동작은 [설정 바꾸기](#설정-바꾸기)에서 바꿀 수 있어요. 다른 글로우가 켜져 있으면 새 깜박임은 생략하고 토스트만 띄웁니다.
 
 ## 라이선스
