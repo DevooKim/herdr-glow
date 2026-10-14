@@ -1,7 +1,7 @@
 #!/bin/sh
 # Triggered by herdr on pane.agent_status_changed / pane.closed / pane.exited.
-# Keeps the edge glow on while at least one pane's agent is blocked (orange)
-# or done (green). blocked takes priority over done.
+# Keeps the edge glow on while at least one pane's agent is blocked (orange).
+# done (green) only pulses once and never returns on idle.
 #   on-status-changed.sh dismiss   clear everything and turn the glow off
 # On pane/tab/workspace focus, done panes you're now looking at count as seen.
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,7 +15,7 @@ DONE_COLOR=34C759
 glow_alive() { [ -f "$STATE/glow.pid" ] && kill -0 "$(cat "$STATE/glow.pid")" 2>/dev/null; }
 glow_stop() {
   glow_alive && kill "$(cat "$STATE/glow.pid")" 2>/dev/null
-  rm -f "$STATE/glow.pid" "$STATE/glow.color"
+  rm -f "$STATE/glow.pid"
 }
 
 if [ "$1" = dismiss ]; then
@@ -56,26 +56,21 @@ toast() {
 if [ -n "$PANE" ]; then
   case "$HERDR_PLUGIN_EVENT_JSON" in
     *'"agent_status":"blocked"'*) toast blocked "$BLOCKED_COLOR"; NEW=blocked ;;
-    *'"agent_status":"done"'*) toast done "$DONE_COLOR"; NEW=done ;;
+    *'"agent_status":"done"'*)
+      if [ ! -f "$STATE/done.$KEY" ] && ! glow_alive; then
+        "$DIR/glow" --color "$DONE_COLOR" --width 60 --duration 5.6 >/dev/null 2>&1 &
+      fi
+      toast done "$DONE_COLOR"; NEW=done ;;
     *) NEW="" ;;
   esac
   rm -f "$STATE/blocked.$KEY" "$STATE/done.$KEY"
   [ -n "$NEW" ] && printf '%s' "$PANE" > "$STATE/$NEW.$KEY"
 fi
 
-if ls "$STATE"/blocked.* >/dev/null 2>&1; then
-  WANT="$BLOCKED_COLOR"
-elif ls "$STATE"/done.* >/dev/null 2>&1; then
-  WANT="$DONE_COLOR"
-else
-  WANT=""
-fi
-
-if [ -z "$WANT" ]; then
+# done markers only dedupe toasts; the persistent glow follows blocked panes.
+if ! ls "$STATE"/blocked.* >/dev/null 2>&1; then
   glow_stop
-elif ! glow_alive || [ "$(cat "$STATE/glow.color" 2>/dev/null)" != "$WANT" ]; then
-  glow_stop
-  "$DIR/glow" --color "$WANT" --width 60 --watch --idle 30 --intro 5.6 >/dev/null 2>&1 &
+elif ! glow_alive; then
+  "$DIR/glow" --color "$BLOCKED_COLOR" --width 60 --watch --idle 30 --intro 5.6 >/dev/null 2>&1 &
   echo $! > "$STATE/glow.pid"
-  echo "$WANT" > "$STATE/glow.color"
 fi

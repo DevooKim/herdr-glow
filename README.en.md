@@ -53,7 +53,7 @@ herdr plugin uninstall devookim.herdr-glow
 
 ## Turning it off
 
-Focusing a done pane counts as seeing it and clears its glow. If the glow sticks
+The glow turns off once no agent is blocked. If it sticks
 around anyway, the `dismiss` action forces it off until an agent's status changes again.
 
 ```sh
@@ -115,7 +115,7 @@ swiftc -O src/glow.swift -o bin/glow
 
 - macOS only. The overlay uses AppKit.
 - The glow shows on the displays connected when it starts.
-- `blocked` (orange) and `done` (green) trigger it; blocked wins when both are present. `idle` does not.
+- `blocked` (orange) is tracked until it clears; `done` (green) pulses once and never returns on idle. If the blocked glow is already on, done shows only the toast. `idle` does not trigger anything.
 
 ## License
 

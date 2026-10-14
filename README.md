@@ -48,7 +48,7 @@ herdr plugin uninstall devookim.herdr-glow
 
 ## 글로우 끄기
 
-done인 pane에 포커스하면 확인한 것으로 보고 글로우를 끕니다. 그래도 남아 있으면
+blocked가 풀리면 글로우가 꺼집니다. 그래도 남아 있으면
 `dismiss` 액션으로 강제로 끌 수 있어요. 상태가 다시 바뀌기 전까지는 켜지지 않습니다.
 
 ```sh
@@ -111,7 +111,7 @@ swiftc -O src/glow.swift -o bin/glow
 
 - macOS 전용입니다. 오버레이에 AppKit을 사용합니다.
 - 글로우는 실행 시점에 연결된 디스플레이에만 표시됩니다.
-- `blocked`(주황)와 `done`(초록) 상태를 감지합니다. 둘이 동시에 있으면 blocked가 우선합니다. `idle`에는 반응하지 않습니다.
+- `blocked`(주황)는 계속 추적하고, `done`(초록)은 한 번만 숨쉬고 끝납니다. done은 자리를 비워도 다시 켜지지 않고, blocked 글로우가 켜져 있으면 토스트만 뜹니다. `idle`에는 반응하지 않습니다.
 
 ## 라이선스
 
