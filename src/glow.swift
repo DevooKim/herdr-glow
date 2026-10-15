@@ -157,10 +157,29 @@ func idleSeconds() -> Double {
 
 enum State { case intro, waiting, glowing }
 var state = State.waiting
+var acknowledgedAt: CFTimeInterval?
+
+// A toast click counts as seeing the notification, including during the intro pulse.
+// Keep watch mode alive so focus events cannot restart its intro immediately;
+// the usual idle threshold can light it again after the user steps away.
+let acknowledgementObserver = DistributedNotificationCenter.default().addObserver(
+    forName: Notification.Name("devookim.herdr-glow.acknowledge"), object: nil, queue: .main
+) { _ in
+    hide()
+    if watch {
+        acknowledgedAt = CACurrentMediaTime()
+        state = .waiting
+    } else {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { NSApp.terminate(nil) }
+    }
+}
 
 if watch {
     func tick() {
-        let idle = idleSeconds()
+        var idle = idleSeconds()
+        if let acknowledgedAt = acknowledgedAt {
+            idle = min(idle, CACurrentMediaTime() - acknowledgedAt)
+        }
         switch state {
         case .intro: break
         case .waiting:
@@ -175,7 +194,9 @@ if watch {
     } else if intro > 0 {
         state = .intro
         playOneShot(intro)
-        DispatchQueue.main.asyncAfter(deadline: .now() + intro) { state = .waiting }
+        DispatchQueue.main.asyncAfter(deadline: .now() + intro) {
+            if case .intro = state { state = .waiting }
+        }
     }
     Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in tick() }
 } else if duration > 0 {
