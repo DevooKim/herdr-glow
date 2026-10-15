@@ -80,7 +80,10 @@ herdr plugin action invoke devookim.herdr-glow.demo-idle
 ## 토스트 클릭
 
 토스트는 기본 4초 동안 떠 있고(`[toast] duration`), 클릭하면 해당 에이전트의 pane으로 이동합니다(`herdr agent focus`, `[toast] click = false`로 끌 수 있어요).
-토스트 테두리에는 상태 색이 꼬리를 끌며 테두리를 따라 도는 효과가 있습니다. 마우스를 올리면 이 효과와 테두리가 밝아지고 포인터가 손가락 모양으로 바뀌며, 올려 둔 동안은 사라지지 않습니다(벗어나면 최대 1.5초 뒤 닫힘).
+토스트 본문을 클릭하면 pane 전환 후 Herdr를 실행 중인 터미널 앱도 앞으로 가져옵니다. 터미널 앱은 실행 환경의 앱 식별자나 실행 경로로 찾습니다.
+이동에 성공하면 켜져 있는 글로우도 페이드 아웃합니다. 유휴 감시 중인 글로우는 다시 자리를 비우면 설정한 유휴 시간에 따라 켜집니다.
+오른쪽 **X** 버튼을 누르면 토스트를 닫고 글로우도 페이드 아웃합니다. Herdr로 이동하지 않으며, 클릭 이동을 꺼두거나 연결된 pane이 없는 토스트에서도 사용할 수 있어요. 유휴 감시는 계속되므로 다시 자리를 비우면 설정한 유휴 시간에 따라 글로우가 켜질 수 있습니다.
+토스트 테두리는 표시 시간에 맞춰 위쪽 중앙부터 시계 방향으로 채워집니다. 끝까지 차면 토스트가 페이드 아웃합니다. X를 포함한 토스트 영역에 마우스를 올리면 테두리가 밝아지고 게이지와 종료 타이머가 함께 멈춥니다. 클릭 가능한 영역에서는 포인터가 손가락 모양으로 바뀝니다. 마우스를 벗어나면 남은 시간부터 다시 진행합니다.
 데모 토스트도 클릭하면 지금 보고 있는 에이전트 pane으로 이동하므로 클릭과 hover 효과를 미리 시험해 볼 수 있어요.
 
 ## 동작 방식
@@ -96,6 +99,36 @@ herdr plugin action invoke devookim.herdr-glow.demo-idle
 측정되지 않을 만큼 적게 씁니다.
 
 ## 설정 바꾸기
+
+`settings` 액션으로 설정 팝업을 열 수 있어요. 상태별 글로우 시간, 유휴 시간, 토스트 표시,
+색상과 공통 글로우·토스트 설정을 편집하고 **Save**를 누르면 `config.toml`에 저장됩니다.
+**Cancel**이나 창 닫기는 변경 내용을 저장하지 않습니다.
+
+설정 팝업은 macOS의 기본 언어가 한국어이면 한국어로, 그 외에는 영어로 표시됩니다.
+한국어에서는 **저장**과 **취소** 버튼으로 표시됩니다. 언어를 변경했다면 설정 창을 닫았다가 다시 열어 주세요.
+
+상태별 색상칸을 클릭하면 macOS 색상 팔레트가 열립니다. 옆의 빨강·파랑·주황·초록 프리셋을
+클릭해 바로 선택하거나 HEX 코드를 직접 입력할 수도 있습니다. 선택한 색과 HEX 코드는 함께 갱신되며,
+**저장**을 눌러야 설정 파일에 반영됩니다.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.settings
+```
+
+단축키로 열려면 Herdr `config.toml`에 추가하세요.
+
+```toml
+[[keys.command]]
+key = "prefix+shift+g"
+type = "plugin_action"
+command = "devookim.herdr-glow.settings"
+description = "Herdr Glow settings"
+```
+
+설정 팝업을 다시 호출하면 열린 창이 앞으로 나옵니다. 저장 시 기존 주석과 다른 설정 항목을
+보존하며, 창을 연 뒤 파일이 외부에서 변경되었다면 창을 다시 열어야 저장할 수 있습니다.
+
+파일을 직접 편집할 수도 있어요.
 
 플러그인 설정 폴더(`herdr plugin config-dir devookim.herdr-glow`, 보통
 `~/.config/herdr/plugins/config/devookim.herdr-glow/`)에 `config.toml`을 두면 됩니다.
@@ -154,7 +187,7 @@ bin/glow --duration 0 --width 60
 `src/*.swift`를 수정했다면 다음 명령으로 다시 빌드하세요.
 
 ```sh
-swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
+swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast && swiftc -O src/settings.swift -o bin/settings
 ```
 
 ## 제한 사항

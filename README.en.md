@@ -85,7 +85,10 @@ herdr plugin action invoke devookim.herdr-glow.demo-idle
 ## Click the toast
 
 The toast stays for 4 seconds by default (`[toast] duration`). Click it to jump to that agent's pane (`herdr agent focus`; turn off with `[toast] click = false`).
-The toast's rim has a comet of the status color circling it. Hovering brightens it and the rim, switches the pointer to a hand, and keeps the toast up until the pointer leaves (then it closes within 1.5 seconds).
+Clicking the body also brings Herdr's host terminal app forward after switching panes. The terminal is identified using its inherited bundle identifier or executable path.
+Successful navigation also fades out active glows. A glow watching for inactivity can return after the configured idle threshold when you step away again.
+The **X** on the right dismisses the toast and fades out active glows without focusing Herdr. It works even when click navigation is disabled or no pane is associated with the toast. Inactivity monitoring continues, so the glow can return after the configured idle threshold when you step away again.
+The toast's rim fills clockwise from the top center over its configured duration, then the toast fades out when the rim is full. Hovering anywhere on the toast, including X, brightens the rim and pauses both the gauge and dismissal timer. Clickable areas show a hand pointer. Leaving resumes the remaining time.
 Demo toasts are clickable too and jump to the agent pane you're on, so you can try the click and hover effects.
 
 ## How it works
@@ -100,6 +103,37 @@ the hook sends it a signal. It needs no extra permissions. While running it uses
 about 40 MB of memory and no measurable CPU.
 
 ## Customize
+
+Open the settings popup with the `settings` action. Edit each status's pulse, idle
+threshold, toast toggle and color, plus the shared glow and toast options, then
+click **Save** to write `config.toml`. **Cancel** or closing the window discards edits.
+
+The popup uses Korean when Korean is the preferred macOS language, and English
+otherwise. Close and reopen the popup after changing the system language.
+
+Click a status's color well to open the macOS color palette, choose a red, blue,
+orange or green preset beside it, or enter a hex code directly. The color well
+and hex code stay in sync; changes are written to the config file only on **Save**.
+
+```sh
+herdr plugin action invoke devookim.herdr-glow.settings
+```
+
+To open it with a shortcut, add this to Herdr's `config.toml`:
+
+```toml
+[[keys.command]]
+key = "prefix+shift+g"
+type = "plugin_action"
+command = "devookim.herdr-glow.settings"
+description = "Herdr Glow settings"
+```
+
+Invoking the action again brings the existing window forward. Saving preserves
+comments and unrelated settings. If the file changes externally while the window
+is open, reopen Settings to load those changes before saving.
+
+You can also edit the file directly.
 
 Put a `config.toml` in the plugin's config directory (`herdr plugin config-dir devookim.herdr-glow`,
 usually `~/.config/herdr/plugins/config/devookim.herdr-glow/`). Write one section per status
@@ -158,7 +192,7 @@ bin/glow --duration 0 --width 60
 After editing `src/*.swift`, rebuild with:
 
 ```sh
-swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast
+swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast && swiftc -O src/settings.swift -o bin/settings
 ```
 
 ## Limitations
