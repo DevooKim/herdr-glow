@@ -256,6 +256,7 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
     var toggles: [String: NSButton] = [:]
     let screen = NSPopUpButton()
     var observer: NSObjectProtocol?
+    var previewProcess: Process?
 
     init(configuration: Configuration) { self.configuration = configuration }
 
@@ -295,8 +296,14 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSColorPanel.shared.title = localized("Colors", "색상")
         NSColorPanel.shared.showsAlpha = false
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 500),
-                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
+                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        // The preview helper may change the frontmost app. Keep this accessory
+        // editor visible and above ordinary terminal windows when it deactivates.
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.level = .floating
+        window = panel
         window.title = localized("Herdr Glow Settings", "Herdr Glow 설정")
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -319,20 +326,39 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
         root.addArrangedSubview(heading)
         var rows: [[NSView]] = [[label(localized("Status", "상태")), label(localized("Pulse (s)", "알림 시간(초)")),
                                 label(localized("Idle (s)", "유휴 시간(초)")), label(localized("Toast", "토스트")),
-                                label(localized("Color · palette & presets", "색상 · 팔레트 및 프리셋"))]]
-        for status in statuses {
+                                label(localized("Color · palette & presets", "색상 · 팔레트 및 프리셋")),
+                                label(localized("Test glow", "글로우 테스트"))]]
+        for (index, status) in statuses.enumerated() {
             let title = label(statusTitle(status))
             title.toolTip = status
+            let test = NSButton(title: localized("Test", "테스트"), target: self, action: #selector(previewGlow(_:)))
+            test.tag = index
+            test.setAccessibilityLabel(localized("Test \(statusTitle(status)) glow", "\(statusTitle(status)) 글로우 테스트"))
             rows.append([title, field("\(status).pulse"), field("\(status).idle"),
-                         toggle("\(status).toast"), colorControl(status)])
+                         toggle("\(status).toast"), colorControl(status), test])
         }
         let grid = NSGridView(views: rows)
         grid.columnSpacing = 20
         grid.rowSpacing = 10
         grid.yPlacement = .center
         root.addArrangedSubview(grid)
-        root.addArrangedSubview(label(localized("Set Pulse or Idle to 0 to disable that glow behavior.",
-                                               "알림 시간이나 유휴 시간을 0으로 설정하면 해당 글로우 동작이 꺼집니다."), secondary: true))
+        let timingHelp = NSStackView()
+        timingHelp.orientation = .vertical
+        timingHelp.alignment = .leading
+        timingHelp.spacing = 4
+        timingHelp.addArrangedSubview(label(localized(
+            "* Pulse: seconds of edge glow when the status changes (0 = off).",
+            "* 알림 시간: 상태가 바뀔 때 화면 가장자리 글로우가 깜박이는 시간 (0 = 끄기)"
+        ), secondary: true))
+        timingHelp.addArrangedSubview(label(localized(
+            "* Idle: seconds without input before glow returns while that status lasts (0 = off).",
+            "* 유휴 시간: 같은 상태에서 입력이 없을 때 글로우가 다시 켜지는 기준 시간 (0 = 끄기)"
+        ), secondary: true))
+        timingHelp.addArrangedSubview(label(localized(
+            "Test uses unsaved values. A pulse of 0 previews for 3 seconds.",
+            "테스트는 현재 입력값을 사용하며, 알림 시간이 0이면 3초간 표시합니다."
+        ), secondary: true))
+        root.addArrangedSubview(timingHelp)
 
         let general = label(localized("Glow & toast", "글로우 및 토스트"))
         general.font = .boldSystemFont(ofSize: 14)
@@ -382,6 +408,70 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     @objc func cancel() { NSApp.terminate(nil) }
 
+    func numberValue(_ id: String, positive: Bool) throws -> Double {
+        let field = fields[id]!
+        let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let number = Double(value), number.isFinite, positive ? number > 0 : number >= 0 else {
+            window.makeFirstResponder(field)
+            throw problem(localized("\(id) must be a \(positive ? "positive" : "non-negative") number.",
+                                    "\(id)은 \(positive ? "0보다 큰" : "0 이상의") 숫자로 입력해 주세요."))
+        }
+        return number
+    }
+
+    func colorValue(_ status: String) throws -> String {
+        let field = fields["\(status).color"]!
+        let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard ColorSettingView.color(from: value) != nil else {
+            window.makeFirstResponder(field)
+            throw problem(localized("\(statusTitle(status)) color must contain six hex digits, such as FF8A1F.",
+                                    "\(statusTitle(status)) 색상은 FF8A1F처럼 16진수 여섯 자리로 입력해 주세요."))
+        }
+        return value.uppercased()
+    }
+
+    func displayValue() throws -> String {
+        guard (0..<2).contains(screen.indexOfSelectedItem) else {
+            throw problem(localized("Choose Active display or All displays.", "마우스가 있는 디스플레이 또는 모든 디스플레이를 선택해 주세요."))
+        }
+        return screen.indexOfSelectedItem == 1 ? "all" : "active"
+    }
+
+    func previewArguments(for status: String) throws -> [String] {
+        let pulse = try numberValue("\(status).pulse", positive: false)
+        return ["--color", try colorValue(status), "--duration", String(pulse > 0 ? pulse : 3),
+                "--width", String(try numberValue("glow.width", positive: true)), "--screen", try displayValue()]
+    }
+
+    func stopPreview() {
+        if let process = previewProcess, process.isRunning { process.terminate() }
+        previewProcess = nil
+    }
+
+    @objc func previewGlow(_ sender: NSButton) {
+        guard statuses.indices.contains(sender.tag) else { return }
+        do {
+            let arguments = try previewArguments(for: statuses[sender.tag])
+            let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+            let process = Process()
+            process.executableURL = executable.deletingLastPathComponent().appendingPathComponent("glow")
+            process.arguments = arguments
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { [weak self] completed in
+                DispatchQueue.main.async {
+                    guard let self = self, self.previewProcess === completed else { return }
+                    self.previewProcess = nil
+                }
+            }
+            stopPreview()
+            try process.run()
+            previewProcess = process
+        } catch {
+            settingsAlert(error).beginSheetModal(for: window)
+        }
+    }
+
     @objc func save() {
         do {
             var values: [String: String] = [:]
@@ -392,27 +482,13 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
                     }
                     values[setting.id] = toggle.state == .on ? "true" : "false"
                 } else if setting.id == "glow.screen" {
-                    guard screen.indexOfSelectedItem < 2 else {
-                        throw problem(localized("Choose Active display or All displays.", "마우스가 있는 디스플레이 또는 모든 디스플레이를 선택해 주세요."))
-                    }
-                    values[setting.id] = screen.indexOfSelectedItem == 1 ? "\"all\"" : "\"active\""
-                } else if let field = fields[setting.id] {
-                    let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    values[setting.id] = "\"\(try displayValue())\""
+                } else if fields[setting.id] != nil {
                     if setting.key == "color" {
-                        guard value.range(of: "^[0-9a-fA-F]{6}$", options: .regularExpression) != nil else {
-                            window.makeFirstResponder(field)
-                            throw problem(localized("\(statusTitle(setting.section)) color must contain six hex digits, such as FF8A1F.",
-                                                    "\(statusTitle(setting.section)) 색상은 FF8A1F처럼 16진수 여섯 자리로 입력해 주세요."))
-                        }
-                        values[setting.id] = "\"\(value.uppercased())\""
+                        values[setting.id] = "\"\(try colorValue(setting.section))\""
                     } else {
                         let positive = setting.id == "glow.width" || setting.id == "toast.duration"
-                        guard let number = Double(value), number.isFinite, positive ? number > 0 : number >= 0 else {
-                            window.makeFirstResponder(field)
-                            throw problem(localized("\(setting.id) must be a \(positive ? "positive" : "non-negative") number.",
-                                                    "\(setting.id)은 \(positive ? "0보다 큰" : "0 이상의") 숫자로 입력해 주세요."))
-                        }
-                        values[setting.id] = String(number)
+                        values[setting.id] = String(try numberValue(setting.id, positive: positive))
                     }
                 }
             }
@@ -430,7 +506,10 @@ final class SettingsController: NSObject, NSApplicationDelegate, NSWindowDelegat
         }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    // Explicit Save, Cancel, Quit and main-window close actions own the editor's lifetime.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) { stopPreview() }
 }
 
 let app = NSApplication.shared

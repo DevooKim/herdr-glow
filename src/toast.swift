@@ -68,6 +68,11 @@ func terminalBundleIdentifiers(_ environment: [String: String]) -> [String] {
     if let identifier = environment["TERM_PROGRAM_BUNDLE_IDENTIFIER"], !identifier.isEmpty {
         identifiers.append(identifier)
     }
+    // Host identity takes priority over executable/resource variables, which may
+    // remain in a shell environment after switching terminal apps.
+    if let identifier = environment["__CFBundleIdentifier"], !identifier.isEmpty {
+        identifiers.append(identifier)
+    }
     // Resolve the enclosing bundle rather than assuming a WezTerm-based terminal's name.
     for key in ["WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR"] {
         guard let path = environment[key], !path.isEmpty else { continue }
@@ -80,25 +85,38 @@ func terminalBundleIdentifiers(_ environment: [String: String]) -> [String] {
             url.deleteLastPathComponent()
         }
     }
-    if let identifier = environment["__CFBundleIdentifier"], !identifier.isEmpty {
-        identifiers.append(identifier)
-    }
     return identifiers
 }
 
 func hostTerminalApplication(_ environment: [String: String]) -> NSRunningApplication? {
-    for identifier in terminalBundleIdentifiers(environment) {
-        if let application = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
-            .first(where: { $0.activationPolicy == .regular }) {
-            return application
+    func runningApplication(_ identifier: String) -> NSRunningApplication? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+            .first(where: { $0.activationPolicy == .regular })
+    }
+
+    let explicitIdentifiers = ["TERM_PROGRAM_BUNDLE_IDENTIFIER", "__CFBundleIdentifier"]
+        .compactMap { environment[$0] }.filter { !$0.isEmpty }
+    if !explicitIdentifiers.isEmpty {
+        // Do not activate an unrelated terminal if the identified host has exited.
+        for identifier in explicitIdentifiers {
+            if let application = runningApplication(identifier) { return application }
+        }
+        return nil
+    }
+
+    // A concrete terminal name is stronger evidence than another terminal's path.
+    if let program = environment["TERM_PROGRAM"], !program.isEmpty, program.lowercased() != "herdr" {
+        let name = program == "Apple_Terminal" ? "Terminal" : program.replacingOccurrences(of: ".app", with: "")
+        return NSWorkspace.shared.runningApplications.first {
+            $0.activationPolicy == .regular && $0.localizedName?.caseInsensitiveCompare(name) == .orderedSame
         }
     }
-    // TERM_PROGRAM may be "herdr" inside panes; only match a named, running GUI app.
-    guard let program = environment["TERM_PROGRAM"], !program.isEmpty, program.lowercased() != "herdr" else { return nil }
-    let name = program == "Apple_Terminal" ? "Terminal" : program.replacingOccurrences(of: ".app", with: "")
-    return NSWorkspace.shared.runningApplications.first {
-        $0.activationPolicy == .regular && $0.localizedName?.caseInsensitiveCompare(name) == .orderedSame
-    }
+
+    // TERM_PROGRAM is often replaced with "herdr". Use path hints only when they
+    // identify a single host, rather than picking WezTerm merely because it is open.
+    let identifiers = Set(terminalBundleIdentifiers(environment))
+    guard identifiers.count == 1, let identifier = identifiers.first else { return nil }
+    return runningApplication(identifier)
 }
 
 @discardableResult
