@@ -86,6 +86,7 @@ herdr plugin action invoke devookim.herdr-glow.demo-idle
 
 The toast stays for 4 seconds by default (`[toast] duration`). Click it to jump to that agent's pane (`herdr agent focus`; turn off with `[toast] click = false`).
 Clicking the body also brings Herdr's host terminal app forward after switching panes. The terminal is identified using its inherited bundle identifier or executable path.
+When using multiple terminals, bundle identifiers and `TERM_PROGRAM` take priority over executable paths. Conflicting path hints alone do not activate an arbitrary terminal app.
 Successful navigation also fades out active glows. A glow watching for inactivity can return after the configured idle threshold when you step away again.
 The **X** on the right dismisses the toast and fades out active glows without focusing Herdr. It works even when click navigation is disabled or no pane is associated with the toast. Inactivity monitoring continues, so the glow can return after the configured idle threshold when you step away again.
 The toast's rim fills clockwise from the top center over its configured duration, then the toast fades out when the rim is full. Hovering anywhere on the toast, including X, brightens the rim and pauses both the gauge and dismissal timer. Clickable areas show a hand pointer. Leaving resumes the remaining time.
@@ -114,6 +115,10 @@ otherwise. Close and reopen the popup after changing the system language.
 Click a status's color well to open the macOS color palette, choose a red, blue,
 orange or green preset beside it, or enter a hex code directly. The color well
 and hex code stay in sync; changes are written to the config file only on **Save**.
+
+Each status has a **Test** button that previews the glow using unsaved color, pulse,
+width and display settings. A pulse of `0` previews for 3 seconds. Starting another
+test replaces the previous preview; closing Settings stops the preview.
 
 ```sh
 herdr plugin action invoke devookim.herdr-glow.settings
@@ -199,7 +204,7 @@ swiftc -O src/glow.swift -o bin/glow && swiftc -O src/toast.swift -o bin/toast &
 
 - macOS only. The overlay uses AppKit.
 - The glow shows on the displays connected when it starts. With the default `screen = "active"` only the display under the mouse lights up.
-- By default only `blocked` (orange) and `done` (green) react; see [Customize](#customize) to change any status. If another glow is already on, a new pulse is skipped and only the toast shows.
+- By default only `blocked` (orange) and `done` (green) react; see [Customize](#customize) to change any status. A status change fades out the previous glow and starts the new status's color and pulse duration. With multiple agents, the latest status change gets its pulse first; subsequent idle reminders follow status priority.
 
 ## License
 

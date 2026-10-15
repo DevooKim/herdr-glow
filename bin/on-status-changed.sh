@@ -49,7 +49,14 @@ TOAST_CLICK="$(cfg toast click true)"
 glow_alive() { [ -f "$STATE/glow.pid" ] && kill -0 "$(cat "$STATE/glow.pid")" 2>/dev/null; }
 glow_stop() {
   glow_alive && kill "$(cat "$STATE/glow.pid")" 2>/dev/null
-  rm -f "$STATE/glow.pid" "$STATE/glow.status"
+  rm -f "$STATE/glow.pid" "$STATE/glow.status" "$STATE/glow.mode" "$STATE/glow.pane"
+}
+# Track pulses as well as watchers so a later status can replace either one.
+glow_record() {
+  echo "$1" > "$STATE/glow.pid"
+  echo "$2" > "$STATE/glow.mode"
+  echo "$3" > "$STATE/glow.status"
+  echo "$4" > "$STATE/glow.pane"
 }
 toast_stop() { [ -f "$STATE/toast.pid" ] && kill "$(cat "$STATE/toast.pid")" 2>/dev/null; }
 
@@ -74,7 +81,11 @@ if [ "$1" = demo ]; then
     echo $! > "$STATE/toast.pid"
     exit 0
   fi
-  is_zero "$PULSE" || "$DIR/glow" --color "$COLOR" --width "$WIDTH" --screen "$SCREEN" --duration "$PULSE" >/dev/null 2>&1 &
+  if ! is_zero "$PULSE"; then
+    glow_stop
+    "$DIR/glow" --color "$COLOR" --width "$WIDTH" --screen "$SCREEN" --duration "$PULSE" >/dev/null 2>&1 &
+    glow_record "$!" pulse "$S" ""
+  fi
   if [ "$(toast_of "$S")" = true ]; then
     toast_stop
     case "$S" in blocked) VERB="needs your input" ;; done) VERB="is done" ;; *) VERB="is $S" ;; esac
@@ -87,6 +98,7 @@ if [ "$1" = demo ]; then
 fi
 
 # Each pane file holds "STATUS PANE_ID".
+CHANGED=""
 case "$HERDR_PLUGIN_EVENT_JSON" in
   *'"pane.focused"'*|*'"tab.focused"'*|*'"workspace.focused"'*)
     # Focus events don't say which pane, so recheck every done pane.
@@ -109,14 +121,12 @@ case "$HERDR_PLUGIN_EVENT_JSON" in
     case " $PRIORITY " in *" $NEW "*) ;; *) NEW="" ;; esac
     if [ -z "$NEW" ]; then
       rm -f "$PANES/$KEY"
+      if [ "$(cat "$STATE/glow.pane" 2>/dev/null)" = "$PANE" ]; then glow_stop; fi
     elif [ "$NEW" != "$OLD" ]; then
       echo "$NEW $PANE" > "$PANES/$KEY"
-      # Pulse and toast only when a pane newly enters the status.
+      CHANGED="$NEW"
+      # Toast only when a pane newly enters the status; choose its glow below.
       COLOR="$(color_of "$NEW")"
-      # Statuses with idle > 0 get their pulse from the idle glow's intro below.
-      if ! is_zero "$(pulse_of "$NEW")" && is_zero "$(idle_of "$NEW")" && ! glow_alive; then
-        "$DIR/glow" --color "$COLOR" --width "$WIDTH" --screen "$SCREEN" --duration "$(pulse_of "$NEW")" >/dev/null 2>&1 &
-      fi
       if [ "$(toast_of "$NEW")" = true ]; then
         toast_stop
         "$DIR/toast" --pane "$PANE" --status "$NEW" --color "$COLOR" --duration "$TOAST_DURATION" --click "$TOAST_CLICK" >/dev/null 2>&1 &
@@ -132,13 +142,34 @@ for S in $PRIORITY; do
   if grep -qs "^$S " "$PANES"/*; then WANT="$S"; break; fi
 done
 
-if [ -z "$WANT" ]; then
+if [ -n "$CHANGED" ]; then
+  # Latest status wins the pulse, even while another pulse or idle glow is active.
   glow_stop
-elif ! glow_alive || [ "$(cat "$STATE/glow.status" 2>/dev/null)" != "$WANT" ]; then
+  PULSE="$(pulse_of "$CHANGED")"
+  if [ -n "$WANT" ]; then
+    # After the new status's pulse, retain the usual priority for idle reminders.
+    if [ "$CHANGED" = "$WANT" ]; then
+      "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --screen "$SCREEN" --watch --idle "$(idle_of "$WANT")" --intro "$PULSE" >/dev/null 2>&1 &
+    else
+      "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --screen "$SCREEN" --watch --idle "$(idle_of "$WANT")" --intro "$PULSE" --intro-color "$(color_of "$CHANGED")" >/dev/null 2>&1 &
+    fi
+    glow_record "$!" watch "$WANT" "$PANE"
+  elif ! is_zero "$PULSE"; then
+    "$DIR/glow" --color "$(color_of "$CHANGED")" --width "$WIDTH" --screen "$SCREEN" --duration "$PULSE" >/dev/null 2>&1 &
+    glow_record "$!" pulse "$CHANGED" "$PANE"
+  fi
+elif [ -z "$WANT" ]; then
+  # A focus event must not cut short a pulse whose pane is still awaiting attention.
+  if [ "$(cat "$STATE/glow.mode" 2>/dev/null)" = pulse ] && glow_alive; then
+    OWNER="$(cat "$STATE/glow.pane" 2>/dev/null)"
+    OWNER_KEY="$(printf '%s' "$OWNER" | tr -c 'A-Za-z0-9_-' '_')"
+    if [ -n "$OWNER" ] && [ ! -f "$PANES/$OWNER_KEY" ]; then glow_stop; fi
+  else
+    glow_stop
+  fi
+elif ! glow_alive || [ "$(cat "$STATE/glow.mode" 2>/dev/null)" != watch ] || [ "$(cat "$STATE/glow.status" 2>/dev/null)" != "$WANT" ]; then
   glow_stop
-  PULSE="$(pulse_of "$WANT")"
-  is_zero "$PULSE" && PULSE=0
-  "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --screen "$SCREEN" --watch --idle "$(idle_of "$WANT")" --intro "$PULSE" >/dev/null 2>&1 &
-  echo $! > "$STATE/glow.pid"
-  echo "$WANT" > "$STATE/glow.status"
+  # Recomputing idle priority does not replay an already-seen status pulse.
+  "$DIR/glow" --color "$(color_of "$WANT")" --width "$WIDTH" --screen "$SCREEN" --watch --idle "$(idle_of "$WANT")" --intro 0 >/dev/null 2>&1 &
+  glow_record "$!" watch "$WANT" ""
 fi

@@ -3,7 +3,7 @@ import QuartzCore
 
 // Ambient edge glow overlay.
 //   glow [--color RRGGBB] [--width PT] [--duration SEC] [--screen active|all]
-//   glow --watch [--idle SEC] [--intro SEC]
+//   glow --watch [--idle SEC] [--intro SEC] [--intro-color RRGGBB]
 // --screen active  glow only on the display under the mouse when it lights up (default); all = every display.
 // --duration SEC  one-shot pulse, then exit (0 = glow until SIGTERM).
 // --watch         short intro pulse, then glow again whenever the user has been idle
@@ -15,6 +15,7 @@ var width: CGFloat = 140
 var watch = false
 var idleThreshold = 30.0
 var intro = 5.6
+var introColorHex: String?
 var activeScreenOnly = true
 
 var args = Array(CommandLine.arguments.dropFirst())
@@ -29,6 +30,7 @@ while let flag = args.first {
     case "--width": width = CGFloat(Double(value) ?? Double(width))
     case "--idle": idleThreshold = Double(value) ?? idleThreshold
     case "--intro": intro = Double(value) ?? intro
+    case "--intro-color": introColorHex = value
     case "--screen": activeScreenOnly = value != "all"
     default: break
     }
@@ -65,7 +67,10 @@ var sources: [DispatchSourceSignal] = []
 
 for screen in NSScreen.screens {
     let f = screen.frame
-    let w = NSWindow(contentRect: f, styleMask: .borderless, backing: .buffered, defer: false)
+    // The overlay must never take activation from the settings window or host app.
+    let w = NSPanel(contentRect: f, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    w.hidesOnDeactivate = false
+    w.becomesKeyOnlyIfNeeded = true
     w.level = .screenSaver
     w.isOpaque = false
     w.backgroundColor = .clear
@@ -100,9 +105,21 @@ func targetLayers() -> [CALayer] {
     return (active.isEmpty ? Array(rootLayers.indices) : active).map { rootLayers[$0] }
 }
 
+func setGlowColor(_ color: NSColor) {
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    for root in rootLayers {
+        for case let edge as CAGradientLayer in root.sublayers ?? [] {
+            edge.colors = [color.withAlphaComponent(0.6).cgColor, color.withAlphaComponent(0).cgColor]
+        }
+    }
+    CATransaction.commit()
+}
+
 /// One-shot with the same pacing as showPersistent(): 0.4s fade in, two 2.4s breaths, 0.4s fade out.
 let oneShotSeconds = 5.6
-func playOneShot(_ seconds: Double = oneShotSeconds) {
+func playOneShot(_ seconds: Double = oneShotSeconds, pulseColor: NSColor? = nil) {
+    setGlowColor(pulseColor ?? color)
     let stops: [(t: Double, v: Float)] = [(0, 0), (0.4, 1), (1.6, 0.45), (2.8, 1), (4.0, 0.45), (5.2, 1), (5.6, 0)]
     for layer in targetLayers() {
         let anim = CAKeyframeAnimation(keyPath: "opacity")
@@ -117,6 +134,7 @@ func playOneShot(_ seconds: Double = oneShotSeconds) {
 
 /// Fade in once, then breathe until hide().
 func showPersistent() {
+    setGlowColor(color)
     for layer in targetLayers() {
         layer.removeAllAnimations()
         layer.opacity = 1
@@ -155,7 +173,7 @@ func idleSeconds() -> Double {
     CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
 }
 
-enum State { case intro, waiting, glowing }
+enum State { case intro, waiting, glowing, stopping }
 var state = State.waiting
 var acknowledgedAt: CFTimeInterval?
 
@@ -170,6 +188,7 @@ let acknowledgementObserver = DistributedNotificationCenter.default().addObserve
         acknowledgedAt = CACurrentMediaTime()
         state = .waiting
     } else {
+        state = .stopping
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { NSApp.terminate(nil) }
     }
 }
@@ -181,22 +200,28 @@ if watch {
             idle = min(idle, CACurrentMediaTime() - acknowledgedAt)
         }
         switch state {
-        case .intro: break
+        case .intro, .stopping: break
         case .waiting:
             if idle >= idleThreshold { showPersistent(); state = .glowing }
         case .glowing:
             if idle < 1.5 { hide(); state = .waiting }
         }
     }
-    if idleSeconds() >= idleThreshold {
-        showPersistent()
-        state = .glowing
-    } else if intro > 0 {
+    func startIntro() {
         state = .intro
-        playOneShot(intro)
+        playOneShot(intro, pulseColor: introColorHex.map(parseColor))
         DispatchQueue.main.asyncAfter(deadline: .now() + intro) {
             if case .intro = state { state = .waiting }
         }
+    }
+    if intro > 0 && introColorHex != nil {
+        // A fresh status always gets its own pulse before idle monitoring resumes.
+        startIntro()
+    } else if idleSeconds() >= idleThreshold {
+        showPersistent()
+        state = .glowing
+    } else if intro > 0 {
+        startIntro()
     }
     Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in tick() }
 } else if duration > 0 {
@@ -206,16 +231,16 @@ if watch {
     showPersistent()
 }
 
-if watch || duration <= 0 {
-    for sig in [SIGTERM, SIGINT] {
-        signal(sig, SIG_IGN)
-        let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-        src.setEventHandler {
-            hide()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { NSApp.terminate(nil) }
-        }
-        src.resume()
-        sources.append(src)
+// One-shot pulses must also fade out when a newer status replaces them.
+for sig in [SIGTERM, SIGINT] {
+    signal(sig, SIG_IGN)
+    let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+    src.setEventHandler {
+        state = .stopping
+        hide()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { NSApp.terminate(nil) }
     }
+    src.resume()
+    sources.append(src)
 }
 app.run()
